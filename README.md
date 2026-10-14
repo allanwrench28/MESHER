@@ -14,7 +14,7 @@ The desktop app lets you convert meshes without remembering command-line options
    [Releases](https://github.com/allanwrench28/Scancraft/releases):
    **windows-x64**, **linux-x64** (Ubuntu 22.04 or newer), or **macos-arm64** (Apple Silicon).
 2. Extract the **entire** archive. Keep the supporting files beside the application.
-3. Open `Scancraft.exe` on Windows, `Scancraft.app` on macOS, or `Scancraft/Scancraft` on Linux.
+3. Open `Scancraft/Scancraft.exe` on Windows, `Scancraft.app` on macOS, or `Scancraft/Scancraft` on Linux.
    On Linux you may need to mark the executable as runnable (`chmod +x Scancraft/Scancraft`).
 4. Click **Browse…** to choose a mesh, choose where to save the STEP file, and click **Convert to STEP**.
 
