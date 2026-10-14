@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scancraft"
-version = "0.1.0"
+version = "0.2.0"
 description = "Convert triangle meshes (STL/OBJ/PLY/3MF) into clean, watertight B-rep solids exported as STEP."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -19,9 +19,11 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+desktop-build = ["pyinstaller==6.22.3"]
 
 [project.scripts]
 scancraft = "scancraft.cli:main"
+scancraft-gui = "scancraft.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

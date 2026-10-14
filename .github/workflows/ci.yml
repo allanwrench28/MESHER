@@ -16,4 +16,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .[test]
-      - run: pytest -q
+      - run: sudo apt-get update && sudo apt-get install -y python3-tk xvfb
+      - run: xvfb-run -a pytest -q

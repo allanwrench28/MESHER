@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x64
+          - os: windows-latest
+            platform: windows-x64
+          - os: macos-14
+            platform: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y python3-tk xvfb libgl1 libxrender1 libxext6
+      - run: python -m pip install ".[test,desktop-build]"
+      - name: Check tag matches package version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          python -c "import os; from importlib.metadata import version; assert os.environ['REF_TYPE'] != 'tag' or os.environ['REF_NAME'] == 'v' + version('scancraft'), 'Release tag must match the package version'"
+      - name: Test (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python -m pytest -q
+      - name: Test (Windows and macOS)
+        if: runner.os != 'Linux'
+        run: python -m pytest -q
+      - name: Build desktop application
+        run: >
+          python -m PyInstaller --noconfirm --clean --windowed --name Scancraft
+          --collect-all OCP --collect-all scipy --collect-all trimesh
+          --hidden-import networkx src/scancraft/desktop.py
+      - name: Build Python wheel
+        if: runner.os == 'Linux'
+        run: python -m pip wheel --no-deps --wheel-dir release-assets .
+      - name: Archive desktop application
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          python -c "import os, shutil; from pathlib import Path; Path('release-assets').mkdir(exist_ok=True); shutil.make_archive('release-assets/Scancraft-' + os.environ['PLATFORM'], 'zip', 'dist', 'Scancraft.app' if os.name == 'posix' and os.uname().sysname == 'Darwin' else 'Scancraft')"
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: Scancraft-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          sha256sum release-assets/* > release-assets/SHA256SUMS
+          gh release create "v$VERSION" release-assets/* \
+            --target "$RELEASE_COMMIT" \
+            --title "Scancraft $VERSION" \
+            --notes "Simple mesh-to-CAD desktop app. Download the ZIP for your platform, extract it, and launch Scancraft. No Python installation needed. Windows x64, Linux x64 (Ubuntu 22.04 or newer), and Apple Silicon macOS are included. These apps are unsigned; follow your organization's security policy before running them. The Python wheel supports the desktop app and the existing CLI."
